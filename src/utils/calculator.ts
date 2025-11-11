@@ -62,7 +62,9 @@ export function calculateTrade(
     realSL = realOpenPrice - segmentData.sl;
   }
 
-  const balance = stage === "EVALUATION" ? ACCOUNT_BALANCES[accountType] || 0 : 1000;
+  // For EVALUATION, use the account balance from the map
+  // For FUNDED, always return 1000 as the fixed balance
+  const balance = stage === "EVALUATION" ? (ACCOUNT_BALANCES[accountType] || 0) : 1000;
 
   return {
     pfLot,
