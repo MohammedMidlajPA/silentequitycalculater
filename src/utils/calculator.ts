@@ -45,21 +45,23 @@ export function calculateTrade(
   const pfLot = segmentData.lots[lotKeys.pf];
   const realLot = segmentData.lots[lotKeys.real];
 
-  // Calculate TP and SL based on action
+  // Calculate TP and SL based on action (matching App_Script-3.docx logic)
   let pfTP: number, pfSL: number, realTP: number, realSL: number;
 
   if (action === "SELL") {
-    // For SELL: TP = Open - TP value, SL = Open + SL value
+    // For SELL (PF): TP = Open - TP, SL = Open + SL
     pfTP = pfOpenPrice - segmentData.tp;
     pfSL = pfOpenPrice + segmentData.sl;
-    realTP = realOpenPrice - segmentData.tp;
+    // For SELL (Real): SL = Open + SL, TP = Open - TP
     realSL = realOpenPrice + segmentData.sl;
+    realTP = realOpenPrice - segmentData.tp;
   } else {
-    // For BUY: TP = Open + TP value, SL = Open - SL value
+    // For BUY (PF): TP = Open + TP, SL = Open - SL
     pfTP = pfOpenPrice + segmentData.tp;
     pfSL = pfOpenPrice - segmentData.sl;
-    realTP = realOpenPrice + segmentData.tp;
+    // For BUY (Real): SL = Open - SL, TP = Open + TP
     realSL = realOpenPrice - segmentData.sl;
+    realTP = realOpenPrice + segmentData.tp;
   }
 
   // For EVALUATION, use the account balance from the map
