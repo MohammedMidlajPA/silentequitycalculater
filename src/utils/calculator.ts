@@ -38,7 +38,6 @@ export function calculateTrade(
     "100K": { pf: "pf100k", real: "real100k" },
     "50K": { pf: "pf50k", real: "real50k" },
     "25K": { pf: "pf25k", real: "real25k" },
-    "5K": { pf: "pf5k", real: "real5k" },
   };
 
   const lotKeys = lotMap[accountType];
