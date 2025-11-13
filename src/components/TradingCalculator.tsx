@@ -1,34 +1,32 @@
 import { useState, useEffect } from "react";
 import { Card } from "@/components/ui/card";
-import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Button } from "@/components/ui/button";
-import { calculateTrade, type CalculationResult } from "@/utils/calculator";
 import { EVALUATION_DATA, FUNDED_DATA, type AccountType, type TradeAction } from "@/data/tradingData";
-import { ArrowUpRight, ArrowDownRight, Calculator } from "lucide-react";
+import { calculateTrade, type CalculationResult } from "@/utils/calculator";
 
-export function TradingCalculator() {
-  const [accountType, setAccountType] = useState<AccountType>("100K");
+export const TradingCalculator = () => {
+  const [accountType, setAccountType] = useState<AccountType>("50K");
+  
+  // Evaluation Stage States
+  const [evalSegment, setEvalSegment] = useState("P1 1ST TRADE");
+  const [evalAction, setEvalAction] = useState<TradeAction>("SELL");
+  const [evalPfOpen, setEvalPfOpen] = useState("");
+  const [evalRealOpen, setEvalRealOpen] = useState("");
+  const [evalResults, setEvalResults] = useState<CalculationResult | null>(null);
 
-  // Evaluation state
-  const [evalSegment, setEvalSegment] = useState<string>("P1 1ST TRADE");
-  const [evalAction, setEvalAction] = useState<TradeAction>("BUY");
-  const [evalPfOpen, setEvalPfOpen] = useState<string>("");
-  const [evalRealOpen, setEvalRealOpen] = useState<string>("");
-  const [evalResult, setEvalResult] = useState<CalculationResult | null>(null);
+  // Funded Stage States
+  const [fundedSegment, setFundedSegment] = useState("1ST TRADE");
+  const [fundedAction, setFundedAction] = useState<TradeAction>("SELL");
+  const [fundedPfOpen, setFundedPfOpen] = useState("");
+  const [fundedRealOpen, setFundedRealOpen] = useState("");
+  const [fundedResults, setFundedResults] = useState<CalculationResult | null>(null);
 
-  // Funded state
-  const [fundedSegment, setFundedSegment] = useState<string>("1ST TRADE");
-  const [fundedAction, setFundedAction] = useState<TradeAction>("BUY");
-  const [fundedPfOpen, setFundedPfOpen] = useState<string>("");
-  const [fundedRealOpen, setFundedRealOpen] = useState<string>("");
-  const [fundedResult, setFundedResult] = useState<CalculationResult | null>(null);
-
-  // Calculate evaluation results
+  // Auto-calculate when inputs change
   useEffect(() => {
     if (evalPfOpen && evalRealOpen) {
-      const result = calculateTrade(
+      const results = calculateTrade(
         accountType,
         "EVALUATION",
         evalSegment,
@@ -36,16 +34,13 @@ export function TradingCalculator() {
         parseFloat(evalPfOpen),
         parseFloat(evalRealOpen)
       );
-      setEvalResult(result);
-    } else {
-      setEvalResult(null);
+      setEvalResults(results);
     }
   }, [accountType, evalSegment, evalAction, evalPfOpen, evalRealOpen]);
 
-  // Calculate funded results
   useEffect(() => {
     if (fundedPfOpen && fundedRealOpen) {
-      const result = calculateTrade(
+      const results = calculateTrade(
         accountType,
         "FUNDED",
         fundedSegment,
@@ -53,702 +48,538 @@ export function TradingCalculator() {
         parseFloat(fundedPfOpen),
         parseFloat(fundedRealOpen)
       );
-      setFundedResult(result);
-    } else {
-      setFundedResult(null);
+      setFundedResults(results);
     }
   }, [accountType, fundedSegment, fundedAction, fundedPfOpen, fundedRealOpen]);
 
-  // Calculate spread values for display
-  const getSpreadValues = (result: CalculationResult | null, action: TradeAction) => {
-    if (!result) return null;
+  const getSpreadValues = (pfTP: number, pfSL: number, realTP: number, realSL: number, action: TradeAction) => {
+    const pfHigher = action === "BUY" ? pfTP : pfSL;
+    const pfLower = action === "BUY" ? pfSL : pfTP;
+    const realHigher = action === "BUY" ? realTP : realSL;
+    const realLower = action === "BUY" ? realSL : realTP;
     
-    const pfSpread = 0.16; // Fixed spread for PF
-    const realSpread = 0.20; // Fixed spread for Real
-    
-    if (action === "SELL") {
-      return {
-        pfHigher: result.pfTP + pfSpread,
-        pfLower: result.pfSL - pfSpread,
-        realHigher: result.realTP + realSpread,
-        realLower: result.realSL - realSpread,
-        pfSpread,
-        realSpread
-      };
-    } else {
-      return {
-        pfHigher: result.pfTP - pfSpread,
-        pfLower: result.pfSL + pfSpread,
-        realHigher: result.realTP - realSpread,
-        realLower: result.realSL + realSpread,
-        pfSpread,
-        realSpread
-      };
-    }
+    return {
+      pfHigher: pfHigher.toFixed(4),
+      pfLower: pfLower.toFixed(4),
+      pfSpread: (pfHigher - pfLower).toFixed(4),
+      realHigher: realHigher.toFixed(4),
+      realLower: realLower.toFixed(4),
+      realSpread: (realHigher - realLower).toFixed(4),
+    };
   };
 
   return (
-    <div className="min-h-screen bg-muted/30 py-6 px-4">
-      <div className="container mx-auto max-w-[1800px]">
-        {/* Header */}
-        <div className="mb-6">
-          <div className="flex items-center justify-center gap-3 mb-2">
-            <Calculator className="w-8 h-8 text-primary" />
-            <h1 className="text-4xl font-bold text-foreground">Trading Calculator</h1>
+    <div className="min-h-screen bg-background p-4">
+      <div className="max-w-[1600px] mx-auto space-y-4">
+        {/* Account Size Selector */}
+        <Card className="p-4 border-2 border-border">
+          <div className="grid grid-cols-[200px_1fr] gap-4 items-center">
+            <Label className="text-sm font-bold border border-border p-2 bg-muted">PF ACCOUNT SIZE</Label>
+            <Select value={accountType} onValueChange={(v) => setAccountType(v as AccountType)}>
+              <SelectTrigger className="bg-success/20 border-2 border-success/50 font-bold">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="100K">100K</SelectItem>
+                <SelectItem value="50K">50K</SelectItem>
+                <SelectItem value="25K">25K</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
-          <p className="text-sm text-muted-foreground text-center">Professional Position Size, TP & SL Calculator - Excel Style Interface</p>
-        </div>
+        </Card>
 
-        {/* Account Size Selector - Excel Style */}
-        <div className="mb-6 border border-border bg-card shadow-sm">
-          <div className="grid grid-cols-2 border-b border-border">
-            <div className="p-3 border-r border-border bg-primary/5">
-              <Label className="text-xs font-bold uppercase tracking-wide">PF Account Size</Label>
-            </div>
-            <div className="p-3 bg-success/10">
-              <Select value={accountType} onValueChange={(value) => setAccountType(value as AccountType)}>
-                <SelectTrigger className="h-9 font-bold border border-border bg-background hover:bg-muted/50 transition-colors">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="100K">100K</SelectItem>
-                  <SelectItem value="50K">50K</SelectItem>
-                  <SelectItem value="25K">25K</SelectItem>
-                  <SelectItem value="5K">5K</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-        </div>
-
-        {/* Side-by-side layout - Excel Style */}
-        <div className="grid xl:grid-cols-2 gap-6">
+        {/* Main Grid: Evaluation and Funded */}
+        <div className="grid lg:grid-cols-2 gap-4">
           {/* EVALUATION STAGE */}
-          <div className="space-y-3">
-            {/* Header */}
-            <div className="border border-border bg-card shadow-sm">
-              <div className="grid grid-cols-[1fr_200px] border-b border-border">
-                <div className="p-3 border-r border-border bg-primary/10">
-                  <h2 className="text-sm font-bold uppercase tracking-wide">Evaluation Stage</h2>
+          <Card className="p-0 border-2 border-border overflow-hidden">
+            <div className="grid grid-cols-[180px_1fr]">
+              {/* Left: Remarks Table */}
+              <div className="border-r-2 border-border bg-muted/30">
+                <div className="border-b-2 border-border p-2 text-center font-bold text-xs bg-muted">
+                  EVALUATION STAGE
                 </div>
-                <div className="p-3 bg-primary/10">
-                  <h3 className="text-xs font-bold uppercase text-center tracking-wide">Remarks</h3>
+                <div className="border-b border-border p-2 text-center font-bold text-[10px] bg-muted/50">
+                  REMARKS
                 </div>
-              </div>
-              
-              {/* Remarks Table */}
-              <div className="grid grid-cols-[1fr_200px]">
-                <div className="border-r-2 border-border"></div>
-                <div>
-                  {/* Header Row */}
-                  <div className="grid grid-cols-2 border-b border-border">
-                    <div className="p-2 border-r border-border bg-muted/20">
-                      <p className="text-xs font-bold uppercase text-center">Prop</p>
-                    </div>
-                    <div className="p-2 bg-muted/20">
-                      <p className="text-xs font-bold uppercase text-center">Real</p>
-                    </div>
-                  </div>
-                  
-                  {/* Phase 1 */}
-                  {["P1 1ST TRADE", "P1 2ND TRADE", "P1 3RD TRADE"].map((seg, i) => (
-                    <div 
-                      key={seg} 
-                      className={`grid grid-cols-2 border-b border-border ${evalSegment === seg ? "bg-success/20" : ""}`}
-                    >
-                  <div className="p-1.5 border-r border-border">
-                    <p className="text-[10px] font-medium text-center">{seg.replace("P1 ", "")}</p>
-                  </div>
-                  <div className="p-1.5">
-                    <p className="text-[10px] font-medium text-center opacity-0">-</p>
-                  </div>
-                    </div>
-                  ))}
-                  
-                  {/* Phase 2 */}
-                  {["P2 1ST TRADE", "P2 2ND TRADE", "P2 3RD TRADE"].map((seg) => (
-                    <div 
-                      key={seg} 
-                      className={`grid grid-cols-2 border-b border-border ${evalSegment === seg ? "bg-success/20" : ""}`}
-                    >
-                  <div className="p-1.5 border-r border-border">
-                    <p className="text-[10px] font-medium text-center">{seg.replace("P2 ", "")}</p>
-                  </div>
-                  <div className="p-1.5">
-                    <p className="text-[10px] font-medium text-center opacity-0">-</p>
-                  </div>
-                    </div>
-                  ))}
+                <div className="grid grid-cols-2 border-b border-border">
+                  <div className="border-r border-border p-1 text-center font-bold text-[10px] bg-muted/50">PROP</div>
+                  <div className="p-1 text-center font-bold text-[10px] bg-muted/50">REAL</div>
                 </div>
-              </div>
-            </div>
-
-            {/* Calculation Area */}
-            <div className="border border-border bg-card shadow-sm">
-              {/* STEP 1 */}
-              <div className="border-b border-border">
-                <div className="grid grid-cols-[90px_1fr] border-b border-border">
-                  <div className="p-2.5 border-r border-border bg-muted/40">
-                    <p className="text-[11px] font-bold uppercase tracking-wide">Step 1</p>
+                {/* Phase 1 */}
+                <div className="grid grid-cols-[80px_1fr] border-b border-border">
+                  <div className="border-r border-border p-1 font-bold text-[10px]">PHASE I</div>
+                  <div>
+                    <div className={`grid grid-cols-2 border-b border-border ${evalSegment === "P1 1ST TRADE" ? "bg-success/30" : ""}`}>
+                      <div className="border-r border-border p-1 text-[9px]">1ST TRADE</div>
+                      <div className="p-1 text-[9px]"></div>
+                    </div>
+                    <div className={`grid grid-cols-2 border-b border-border ${evalSegment === "P1 2ND TRADE" ? "bg-success/30" : ""}`}>
+                      <div className="border-r border-border p-1 text-[9px]">2ND TRADE</div>
+                      <div className="p-1 text-[9px]"></div>
+                    </div>
+                    <div className={`grid grid-cols-2 ${evalSegment === "P1 3RD TRADE" ? "bg-success/30" : ""}`}>
+                      <div className="border-r border-border p-1 text-[9px]">3rd TRADE</div>
+                      <div className="p-1 text-[9px]"></div>
+                    </div>
                   </div>
-                  <div className="p-2 bg-success/10">
-                    <Select value={evalSegment} onValueChange={setEvalSegment}>
-                      <SelectTrigger className="h-9 border border-border font-semibold bg-background hover:bg-muted/50 transition-colors">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {EVALUATION_DATA.map((item) => (
-                          <SelectItem key={item.segment} value={item.segment}>
-                            {item.segment}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                </div>
+                {/* Phase 2 */}
+                <div className="grid grid-cols-[80px_1fr]">
+                  <div className="border-r border-border p-1 font-bold text-[10px]">PHASE 2</div>
+                  <div>
+                    <div className={`grid grid-cols-2 border-b border-border ${evalSegment === "P2 1ST TRADE" ? "bg-success/30" : ""}`}>
+                      <div className="border-r border-border p-1 text-[9px]">1ST TRADE</div>
+                      <div className="p-1 text-[9px]"></div>
+                    </div>
+                    <div className={`grid grid-cols-2 border-b border-border ${evalSegment === "P2 2ND TRADE" ? "bg-success/30" : ""}`}>
+                      <div className="border-r border-border p-1 text-[9px]">2ND TRADE</div>
+                      <div className="p-1 text-[9px]"></div>
+                    </div>
+                    <div className={`grid grid-cols-2 ${evalSegment === "P2 3RD TRADE" ? "bg-success/30" : ""}`}>
+                      <div className="border-r border-border p-1 text-[9px]">3rd TRADE</div>
+                      <div className="p-1 text-[9px]"></div>
+                    </div>
                   </div>
                 </div>
               </div>
 
-              {/* STEP 2 */}
-              <div className="border-b border-border">
-                <div className="grid grid-cols-[90px_1fr] border-b border-border bg-muted/40">
-                  <div className="p-2.5 border-r border-border">
-                    <p className="text-[11px] font-bold uppercase tracking-wide">Step 2</p>
-                  </div>
-                  <div className="grid grid-cols-4">
-                    <div className="p-2 border-r border-border">
-                      <p className="text-[10px] font-bold text-center uppercase tracking-wide">LOT</p>
-                    </div>
-                    <div className="p-2 border-r border-border">
-                      <p className="text-[10px] font-bold text-center uppercase tracking-wide">P.F OPEN</p>
-                    </div>
-                    <div className="p-2 border-r border-border">
-                      <p className="text-[10px] font-bold text-center uppercase tracking-wide">LOT</p>
-                    </div>
-                    <div className="p-2">
-                      <p className="text-[10px] font-bold text-center uppercase tracking-wide">REAL OPEN</p>
+              {/* Right: Calculation Area */}
+              <div className="p-3 space-y-2">
+                <div className="text-center font-bold text-sm border-2 border-border p-2 bg-muted/50">
+                  EVALUATION STAGE
+                </div>
+
+                {/* STEP 1 */}
+                <div className="border border-border">
+                  <div className="grid grid-cols-[60px_1fr] border-b border-border">
+                    <div className="border-r border-border p-1 font-bold text-[10px] bg-muted/50">STEP 1</div>
+                    <div className="p-1 text-center">
+                      <Select value={evalSegment} onValueChange={setEvalSegment}>
+                        <SelectTrigger className="h-7 text-[11px] bg-success/20 border border-success/50 font-bold">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {EVALUATION_DATA.map((d) => (
+                            <SelectItem key={d.segment} value={d.segment} className="text-[11px]">
+                              {d.segment}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     </div>
                   </div>
                 </div>
-                <div className="grid grid-cols-[90px_1fr]">
-                  <div className="border-r border-border bg-muted/20"></div>
-                  <div className="grid grid-cols-4">
-                    <div className="p-1.5 border-r border-border bg-info/10">
-                      <Input 
-                        value={evalResult?.pfLot.toFixed(3) || ""} 
-                        readOnly 
-                        className="h-8 text-center text-xs font-semibold bg-transparent border-0 pointer-events-none"
+
+                {/* STEP 2 */}
+                <div className="border border-border">
+                  <div className="grid grid-cols-[60px_1fr] border-b border-border">
+                    <div className="border-r border-border p-1 font-bold text-[10px] bg-muted/50">STEP 2</div>
+                    <div className="grid grid-cols-4 gap-px bg-border">
+                      <div className="bg-muted/50 p-1 text-center text-[10px] font-bold">LOT</div>
+                      <div className="bg-success/20 p-1 text-center text-[10px] font-bold">PF OPEN PRICE</div>
+                      <div className="bg-muted/50 p-1 text-center text-[10px] font-bold">LOT</div>
+                      <div className="bg-success/20 p-1 text-center text-[10px] font-bold">REAL OPEN PRICE</div>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-4 gap-px bg-border p-px">
+                    <div className="bg-background p-1">
+                      <Input
+                        value={evalResults?.pfLot || ""}
+                        readOnly
+                        className="h-7 text-center text-[11px] bg-muted/50 border-none"
                       />
                     </div>
-                    <div className="p-1.5 border-r border-border bg-success/10">
+                    <div className="bg-background p-1">
                       <Input
                         type="number"
-                        step="0.001"
-                        placeholder="3996.38"
                         value={evalPfOpen}
                         onChange={(e) => setEvalPfOpen(e.target.value)}
-                        className="h-8 text-center text-xs font-semibold border border-border focus:ring-2 focus:ring-success/50"
+                        className="h-7 text-center text-[11px] bg-success/20 border-2 border-success/50 font-bold"
+                        placeholder="Enter"
                       />
                     </div>
-                    <div className="p-1.5 border-r border-border bg-info/10">
-                      <Input 
-                        value={evalResult?.realLot.toFixed(3) || ""} 
-                        readOnly 
-                        className="h-8 text-center text-xs font-semibold bg-transparent border-0 pointer-events-none"
+                    <div className="bg-background p-1">
+                      <Input
+                        value={evalResults?.realLot || ""}
+                        readOnly
+                        className="h-7 text-center text-[11px] bg-muted/50 border-none"
                       />
                     </div>
-                    <div className="p-1.5 bg-success/10">
+                    <div className="bg-background p-1">
                       <Input
                         type="number"
-                        step="0.001"
-                        placeholder="3996.3"
                         value={evalRealOpen}
                         onChange={(e) => setEvalRealOpen(e.target.value)}
-                        className="h-8 text-center text-xs font-semibold border border-border focus:ring-2 focus:ring-success/50"
+                        className="h-7 text-center text-[11px] bg-success/20 border-2 border-success/50 font-bold"
+                        placeholder="Enter"
                       />
                     </div>
                   </div>
                 </div>
-              </div>
 
-              {/* STEP 3 */}
-              <div className="border-b border-border">
-                <div className="grid grid-cols-[90px_1fr_1fr]">
-                  <div className="p-2.5 border-r border-border bg-muted/40">
-                    <p className="text-[11px] font-bold uppercase tracking-wide">Step 3</p>
-                  </div>
-                  <div className="p-2.5 border-r border-border bg-muted/20">
-                    <p className="text-[10px] font-bold text-center uppercase tracking-wide">Prop Firm AC</p>
-                  </div>
-                  <div className={`p-2.5 ${evalAction === "SELL" ? "bg-destructive/15" : "bg-success/15"}`}>
-                    <p className="text-xs font-bold text-center uppercase tracking-wide">{evalAction}</p>
-                  </div>
-                </div>
-              </div>
-
-              {/* STEP 4 */}
-              {evalResult && (
-                <div className="border-b border-border">
-                  <div className="grid grid-cols-[90px_1fr_1fr] border-b border-border bg-muted/40">
-                    <div className="p-2.5 border-r border-border">
-                      <p className="text-[11px] font-bold uppercase tracking-wide">Step 4</p>
-                    </div>
-                    <div className="p-2 border-r border-border">
-                      <p className="text-[10px] font-bold text-center uppercase tracking-wide">Prop Firm TP</p>
-                    </div>
-                    <div className="p-2">
-                      <p className="text-[10px] font-bold text-center uppercase tracking-wide">Prop Firm SL</p>
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-[90px_1fr_1fr]">
-                    <div className="border-r border-border bg-muted/20"></div>
-                    <div className="p-2.5 border-r border-border bg-info/10">
-                      <p className="text-sm font-bold text-center">{evalResult.pfTP.toFixed(3)}</p>
-                    </div>
-                    <div className="p-2.5 bg-info/10">
-                      <p className="text-sm font-bold text-center">{evalResult.pfSL.toFixed(3)}</p>
+                {/* STEP 3 */}
+                <div className="border border-border">
+                  <div className="grid grid-cols-[60px_1fr] border-b border-border">
+                    <div className="border-r border-border p-1 font-bold text-[10px] bg-muted/50">STEP 3</div>
+                    <div className="grid grid-cols-2">
+                      <div className="border-r border-border p-1 text-center text-[10px] font-bold bg-muted/50">PROP FIRM AC</div>
+                      <div className="p-1 text-center">
+                        <Select value={evalAction} onValueChange={(v) => setEvalAction(v as TradeAction)}>
+                          <SelectTrigger className={`h-7 text-[11px] font-bold border-2 ${evalAction === "BUY" ? "bg-success/20 border-success/50" : "bg-destructive/20 border-destructive/50"}`}>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="BUY">BUY</SelectItem>
+                            <SelectItem value="SELL">SELL</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
                     </div>
                   </div>
                 </div>
-              )}
 
-              {/* FINDOUT SECTION */}
-              {evalResult && getSpreadValues(evalResult, evalAction) && (
-                <div className="border-b border-border">
-                  <div className="p-2 bg-muted/40 border-b border-border">
-                    <p className="text-[10px] font-bold text-center uppercase tracking-wide">Findout The Exit Value To Show Real TP & Real SL</p>
-                  </div>
-                  <div className="grid grid-cols-[90px_100px_1fr_1fr_100px] border-b border-border bg-muted/40">
-                    <div className="border-r border-border"></div>
-                    <div className="border-r border-border"></div>
-                    <div className="p-1.5 border-r border-border">
-                      <p className="text-[9px] font-bold text-center uppercase tracking-wide">Higher Side</p>
-                    </div>
-                    <div className="p-1.5 border-r border-border">
-                      <p className="text-[9px] font-bold text-center uppercase tracking-wide">Lower Side</p>
-                    </div>
-                    <div className="p-1.5">
-                      <p className="text-[9px] font-bold text-center uppercase tracking-wide">Spread (PF)</p>
+                {/* STEP 4 */}
+                <div className="border border-border">
+                  <div className="grid grid-cols-[60px_1fr] border-b border-border">
+                    <div className="border-r border-border p-1 font-bold text-[10px] bg-muted/50">STEP 4</div>
+                    <div className="grid grid-cols-2 gap-px bg-border">
+                      <div className="bg-muted/50 p-1 text-center text-[10px] font-bold">PROP FIRM TP</div>
+                      <div className="bg-muted/50 p-1 text-center text-[10px] font-bold">PROP FIRM SL</div>
                     </div>
                   </div>
-                  {(() => {
-                    const spread = getSpreadValues(evalResult, evalAction);
-                    return (
-                      <>
-                        <div className="grid grid-cols-[90px_100px_1fr_1fr_100px] border-b border-border">
-                          <div className="border-r border-border bg-muted/20"></div>
-                          <div className="p-1.5 border-r border-border bg-muted/20">
-                            <p className="text-[10px] font-semibold">PF A/c</p>
-                          </div>
-                          <div className="p-1.5 border-r border-border bg-success/10">
-                            <p className="text-[10px] font-semibold text-center">{spread!.pfHigher.toFixed(4)}</p>
-                          </div>
-                          <div className="p-1.5 border-r border-border bg-success/10">
-                            <p className="text-[10px] font-semibold text-center">{spread!.pfLower.toFixed(4)}</p>
-                          </div>
-                          <div className="p-1.5 bg-success/10">
-                            <p className="text-[10px] font-semibold text-center">{spread!.pfSpread.toFixed(4)}</p>
-                          </div>
-                        </div>
-                        <div className="grid grid-cols-[90px_100px_1fr_1fr_100px]">
-                          <div className="border-r border-border bg-muted/20"></div>
-                          <div className="p-1.5 border-r border-border bg-muted/20">
-                            <p className="text-[10px] font-semibold">REAL A/c</p>
-                          </div>
-                          <div className="p-1.5 border-r border-border bg-success/10">
-                            <p className="text-[10px] font-semibold text-center">{spread!.realHigher.toFixed(4)}</p>
-                          </div>
-                          <div className="p-1.5 border-r border-border bg-success/10">
-                            <p className="text-[10px] font-semibold text-center">{spread!.realLower.toFixed(4)}</p>
-                          </div>
-                          <div className="p-1.5 bg-success/10">
-                            <p className="text-[10px] font-semibold text-center">{spread!.realSpread.toFixed(4)}</p>
-                          </div>
-                        </div>
-                      </>
-                    );
-                  })()}
-                </div>
-              )}
-
-              {/* STEP 5a */}
-              {evalResult && (
-                <div className="border-b border-border">
-                  <div className="grid grid-cols-[90px_1fr_1fr] border-b border-border bg-muted/40">
-                    <div className="p-2.5 border-r border-border">
-                      <p className="text-[11px] font-bold uppercase tracking-wide">Step 5a</p>
-                    </div>
-                    <div className="p-2 border-r border-border">
-                      <p className="text-[10px] font-bold text-center uppercase tracking-wide">Real AC TP</p>
-                    </div>
-                    <div className="p-2">
-                      <p className="text-[10px] font-bold text-center uppercase tracking-wide">Real AC SL</p>
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-[90px_1fr_1fr]">
-                    <div className="border-r border-border bg-muted/20"></div>
-                    <div className="p-2.5 border-r border-border bg-info/10">
-                      <p className="text-sm font-bold text-center">{evalResult.realTP.toFixed(3)}</p>
-                    </div>
-                    <div className="p-2.5 bg-info/10">
-                      <p className="text-sm font-bold text-center">{evalResult.realSL.toFixed(3)}</p>
-                    </div>
+                  <div className="grid grid-cols-2 gap-px bg-border p-px">
+                    <Input
+                      value={evalResults?.pfTP.toFixed(3) || ""}
+                      readOnly
+                      className="h-8 text-center text-[11px] bg-info/20 border-none font-bold"
+                    />
+                    <Input
+                      value={evalResults?.pfSL.toFixed(3) || ""}
+                      readOnly
+                      className="h-8 text-center text-[11px] bg-info/20 border-none font-bold"
+                    />
                   </div>
                 </div>
-              )}
 
-              {/* STEP 5b */}
-              {evalResult && (
-                <div className="border-b border-border">
-                  <div className="grid grid-cols-[90px_1fr_1fr] border-b border-border bg-warning/20">
-                    <div className="p-2.5 border-r border-border">
-                      <p className="text-[11px] font-bold uppercase tracking-wide">Step 5b</p>
+                {/* FINDOUT EXIT VALUE */}
+                {evalResults && (() => {
+                  const spread = getSpreadValues(evalResults.pfTP, evalResults.pfSL, evalResults.realTP, evalResults.realSL, evalAction);
+                  return (
+                    <div className="border border-border text-[10px]">
+                      <div className="border-b border-border p-1 text-center font-bold bg-muted/50">
+                        FINDOUT THE EXIT VALUE TO SHOW REAL TP & REAL SL
+                      </div>
+                      <div className="grid grid-cols-4 gap-px bg-border border-b border-border">
+                        <div className="bg-background"></div>
+                        <div className="bg-success/20 p-1 text-center font-bold">HIGHER SIDE</div>
+                        <div className="bg-success/20 p-1 text-center font-bold">LOWER SIDE</div>
+                        <div className="bg-success/20 p-1 text-center font-bold">SPREAD (PF)</div>
+                      </div>
+                      <div className="grid grid-cols-4 gap-px bg-border border-b border-border">
+                        <div className="bg-muted/50 p-1 font-bold">PF A/c</div>
+                        <div className="bg-success/20 p-1 text-center">{spread.pfHigher}</div>
+                        <div className="bg-success/20 p-1 text-center">{spread.pfLower}</div>
+                        <div className="bg-success/20 p-1 text-center">{spread.pfSpread}</div>
+                      </div>
+                      <div className="grid grid-cols-4 gap-px bg-border">
+                        <div className="bg-muted/50 p-1 font-bold">REAL A/c</div>
+                        <div className="bg-success/20 p-1 text-center">{spread.realHigher}</div>
+                        <div className="bg-success/20 p-1 text-center">{spread.realLower}</div>
+                        <div className="bg-success/20 p-1 text-center">{spread.realSpread}</div>
+                      </div>
                     </div>
-                    <div className="p-2 border-r border-border">
-                      <p className="text-[10px] font-bold text-center uppercase tracking-wide">Real AC TP</p>
-                    </div>
-                    <div className="p-2">
-                      <p className="text-[10px] font-bold text-center uppercase tracking-wide">Real AC SL</p>
+                  );
+                })()}
+
+                {/* STEP 5a */}
+                <div className="border border-border">
+                  <div className="grid grid-cols-[60px_1fr] border-b border-border">
+                    <div className="border-r border-border p-1 font-bold text-[10px] bg-muted/50">STEP 5a</div>
+                    <div className="grid grid-cols-2 gap-px bg-border">
+                      <div className="bg-muted/50 p-1 text-center text-[10px] font-bold">REAL AC TP</div>
+                      <div className="bg-muted/50 p-1 text-center text-[10px] font-bold">REAL AC SL</div>
                     </div>
                   </div>
-                  <div className="grid grid-cols-[90px_1fr_1fr]">
-                    <div className="border-r border-border bg-muted/20"></div>
-                    <div className="p-2.5 border-r border-border bg-info/10">
-                      <p className="text-sm font-bold text-center">{evalResult.realTP.toFixed(3)}</p>
-                    </div>
-                    <div className="p-2.5 bg-info/10">
-                      <p className="text-sm font-bold text-center">{evalResult.realSL.toFixed(3)}</p>
-                    </div>
+                  <div className="grid grid-cols-2 gap-px bg-border p-px">
+                    <Input
+                      value={evalResults?.realTP.toFixed(3) || ""}
+                      readOnly
+                      className="h-8 text-center text-[11px] bg-info/20 border-none font-bold"
+                    />
+                    <Input
+                      value={evalResults?.realSL.toFixed(3) || ""}
+                      readOnly
+                      className="h-8 text-center text-[11px] bg-info/20 border-none font-bold"
+                    />
                   </div>
                 </div>
-              )}
 
-              {/* Balance */}
-              {evalResult && (
-                <div className="p-3 bg-warning/15 border-t border-warning/40">
-                  <p className="text-[10px] font-bold text-center mb-1 uppercase tracking-wide">Balance After Evaluation</p>
-                  <p className="text-xl font-bold text-center">${evalResult.balance.toFixed(2)}</p>
+                {/* STEP 5b */}
+                <div className="border border-border">
+                  <div className="grid grid-cols-[60px_1fr] border-b border-border">
+                    <div className="border-r border-border p-1 font-bold text-[10px] bg-warning/30">STEP 5b</div>
+                    <div className="grid grid-cols-2 gap-px bg-border">
+                      <div className="bg-muted/50 p-1 text-center text-[10px] font-bold">REAL AC TP</div>
+                      <div className="bg-muted/50 p-1 text-center text-[10px] font-bold">REAL AC SL</div>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-px bg-border p-px">
+                    <Input
+                      value={evalResults?.realTP.toFixed(3) || ""}
+                      readOnly
+                      className="h-8 text-center text-[11px] bg-info/20 border-none font-bold"
+                    />
+                    <Input
+                      value={evalResults?.realSL.toFixed(3) || ""}
+                      readOnly
+                      className="h-8 text-center text-[11px] bg-info/20 border-none font-bold"
+                    />
+                  </div>
                 </div>
-              )}
-            </div>
 
-            {/* Action Buttons */}
-            <div className="border border-border bg-card shadow-sm p-3">
-              <div className="flex gap-2">
-                <Button
-                  type="button"
-                  variant={evalAction === "BUY" ? "default" : "outline"}
-                  className="flex-1 h-11 font-semibold"
-                  onClick={() => setEvalAction("BUY")}
-                >
-                  <ArrowUpRight className="w-4 h-4 mr-2" />
-                  BUY
-                </Button>
-                <Button
-                  type="button"
-                  variant={evalAction === "SELL" ? "destructive" : "outline"}
-                  className="flex-1 h-11 font-semibold"
-                  onClick={() => setEvalAction("SELL")}
-                >
-                  <ArrowDownRight className="w-5 h-5 mr-2" />
-                  SELL
-                </Button>
+                {/* Balance */}
+                {evalResults && (
+                  <div className="border-t-2 border-warning/50 bg-warning/20 p-2 text-center">
+                    <div className="text-[10px] font-bold">REAL AC BALANCE AFTER EVALUATION</div>
+                    <div className="text-lg font-bold">${evalResults.balance.toFixed(2)}</div>
+                  </div>
+                )}
               </div>
             </div>
-          </div>
+          </Card>
 
           {/* FUNDED STAGE */}
-          <div className="space-y-3">
-            {/* Header */}
-            <div className="border border-border bg-card shadow-sm">
-              <div className="grid grid-cols-[1fr_200px] border-b border-border">
-                <div className="p-3 border-r border-border bg-primary/10">
-                  <h2 className="text-sm font-bold uppercase tracking-wide">Funded Stage</h2>
+          <Card className="p-0 border-2 border-border overflow-hidden">
+            <div className="grid grid-cols-[180px_1fr]">
+              {/* Left: Remarks Table */}
+              <div className="border-r-2 border-border bg-muted/30">
+                <div className="border-b-2 border-border p-2 text-center font-bold text-xs bg-muted">
+                  FUNDED STAGE
                 </div>
-                <div className="p-3 bg-primary/10">
-                  <h3 className="text-xs font-bold uppercase text-center tracking-wide">Remarks</h3>
+                <div className="border-b border-border p-2 text-center font-bold text-[10px] bg-muted/50">
+                  REMARKS
                 </div>
-              </div>
-              
-              {/* Remarks Table */}
-              <div className="grid grid-cols-[1fr_200px]">
-                <div className="border-r-2 border-border"></div>
-                <div>
-                  {/* Header Row */}
-                  <div className="grid grid-cols-2 border-b border-border">
-                    <div className="p-2 border-r border-border bg-muted/20">
-                      <p className="text-xs font-bold uppercase text-center">Prop</p>
-                    </div>
-                    <div className="p-2 bg-muted/20">
-                      <p className="text-xs font-bold uppercase text-center">Real</p>
-                    </div>
-                  </div>
-                  
-                  {/* Funded trades */}
-                  {FUNDED_DATA.map((item) => (
-                    <div 
-                      key={item.segment} 
-                      className={`grid grid-cols-2 border-b border-border ${fundedSegment === item.segment ? "bg-success/20" : ""}`}
-                    >
-                      <div className="p-1.5 border-r border-border">
-                        <p className="text-[10px] font-medium text-center">{item.segment}</p>
-                      </div>
-                      <div className="p-1.5">
-                        <p className="text-[10px] font-medium text-center opacity-0">-</p>
-                      </div>
-                    </div>
-                  ))}
+                <div className="grid grid-cols-2 border-b border-border">
+                  <div className="border-r border-border p-1 text-center font-bold text-[10px] bg-muted/50">PROP</div>
+                  <div className="p-1 text-center font-bold text-[10px] bg-muted/50">REAL</div>
                 </div>
-              </div>
-            </div>
-
-            {/* Calculation Area */}
-            <div className="border border-border bg-card shadow-sm">
-              {/* STEP 1 */}
-              <div className="border-b border-border">
-                <div className="grid grid-cols-[90px_1fr] border-b border-border">
-                  <div className="p-2.5 border-r border-border bg-muted/40">
-                    <p className="text-[11px] font-bold uppercase tracking-wide">Step 1</p>
+                {FUNDED_DATA.map((trade) => (
+                  <div
+                    key={trade.segment}
+                    className={`grid grid-cols-2 border-b border-border ${fundedSegment === trade.segment ? "bg-success/30" : ""}`}
+                  >
+                    <div className="border-r border-border p-1 text-[9px] font-bold">{trade.segment}</div>
+                    <div className="p-1 text-[9px]"></div>
                   </div>
-                  <div className="p-2 bg-success/10">
-                    <Select value={fundedSegment} onValueChange={setFundedSegment}>
-                      <SelectTrigger className="h-9 border border-border font-semibold bg-background hover:bg-muted/50 transition-colors">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {FUNDED_DATA.map((item) => (
-                          <SelectItem key={item.segment} value={item.segment}>
-                            {item.segment}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
+                ))}
+                
+                {/* Balance Section */}
+                <div className="mt-4 border-t-2 border-warning/50 bg-warning/20 p-2">
+                  <div className="text-[9px] font-bold text-center mb-1">REAL AC</div>
+                  <div className="text-[9px] font-bold text-center mb-1">BALANCE AFTER EVALUATION</div>
+                  <div className="text-[9px] font-bold text-center">OR AFTER PHASE 2</div>
+                  <div className="text-sm font-bold text-center mt-1">${fundedResults?.balance.toFixed(2) || "1,000.00"}</div>
                 </div>
               </div>
 
-              {/* STEP 2 */}
-              <div className="border-b border-border">
-                <div className="grid grid-cols-[90px_1fr] border-b border-border bg-muted/40">
-                  <div className="p-2.5 border-r border-border">
-                    <p className="text-[11px] font-bold uppercase tracking-wide">Step 2</p>
-                  </div>
-                  <div className="grid grid-cols-4">
-                    <div className="p-2 border-r border-border">
-                      <p className="text-[10px] font-bold text-center uppercase tracking-wide">LOT</p>
-                    </div>
-                    <div className="p-2 border-r border-border">
-                      <p className="text-[10px] font-bold text-center uppercase tracking-wide">P.F OPEN</p>
-                    </div>
-                    <div className="p-2 border-r border-border">
-                      <p className="text-[10px] font-bold text-center uppercase tracking-wide">LOT</p>
-                    </div>
-                    <div className="p-2">
-                      <p className="text-[10px] font-bold text-center uppercase tracking-wide">REAL OPEN</p>
+              {/* Right: Calculation Area */}
+              <div className="p-3 space-y-2">
+                <div className="text-center font-bold text-sm border-2 border-border p-2 bg-muted/50">
+                  FUNDED STAGE
+                </div>
+
+                {/* STEP 1 */}
+                <div className="border border-border">
+                  <div className="grid grid-cols-[60px_1fr] border-b border-border">
+                    <div className="border-r border-border p-1 font-bold text-[10px] bg-muted/50">STEP 1</div>
+                    <div className="p-1 text-center">
+                      <Select value={fundedSegment} onValueChange={setFundedSegment}>
+                        <SelectTrigger className="h-7 text-[11px] bg-success/20 border border-success/50 font-bold">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {FUNDED_DATA.map((d) => (
+                            <SelectItem key={d.segment} value={d.segment} className="text-[11px]">
+                              {d.segment}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     </div>
                   </div>
                 </div>
-                <div className="grid grid-cols-[90px_1fr]">
-                  <div className="border-r border-border bg-muted/20"></div>
-                  <div className="grid grid-cols-4">
-                    <div className="p-1.5 border-r border-border bg-info/10">
-                      <Input 
-                        value={fundedResult?.pfLot.toFixed(3) || ""} 
-                        readOnly 
-                        className="h-8 text-center text-xs font-semibold bg-transparent border-0 pointer-events-none"
+
+                {/* STEP 2 */}
+                <div className="border border-border">
+                  <div className="grid grid-cols-[60px_1fr] border-b border-border">
+                    <div className="border-r border-border p-1 font-bold text-[10px] bg-muted/50">STEP 2</div>
+                    <div className="grid grid-cols-4 gap-px bg-border">
+                      <div className="bg-muted/50 p-1 text-center text-[10px] font-bold">LOT</div>
+                      <div className="bg-success/20 p-1 text-center text-[10px] font-bold">PF OPEN PRICE</div>
+                      <div className="bg-muted/50 p-1 text-center text-[10px] font-bold">LOT</div>
+                      <div className="bg-success/20 p-1 text-center text-[10px] font-bold">REAL OPEN PRICE</div>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-4 gap-px bg-border p-px">
+                    <div className="bg-background p-1">
+                      <Input
+                        value={fundedResults?.pfLot || ""}
+                        readOnly
+                        className="h-7 text-center text-[11px] bg-muted/50 border-none"
                       />
                     </div>
-                    <div className="p-1.5 border-r border-border bg-success/10">
+                    <div className="bg-background p-1">
                       <Input
                         type="number"
-                        step="0.001"
-                        placeholder="1000"
                         value={fundedPfOpen}
                         onChange={(e) => setFundedPfOpen(e.target.value)}
-                        className="h-8 text-center text-xs font-semibold border border-border focus:ring-2 focus:ring-success/50"
+                        className="h-7 text-center text-[11px] bg-success/20 border-2 border-success/50 font-bold"
+                        placeholder="Enter"
                       />
                     </div>
-                    <div className="p-1.5 border-r border-border bg-info/10">
-                      <Input 
-                        value={fundedResult?.realLot.toFixed(3) || ""} 
-                        readOnly 
-                        className="h-8 text-center text-xs font-semibold bg-transparent border-0 pointer-events-none"
+                    <div className="bg-background p-1">
+                      <Input
+                        value={fundedResults?.realLot || ""}
+                        readOnly
+                        className="h-7 text-center text-[11px] bg-muted/50 border-none"
                       />
                     </div>
-                    <div className="p-1.5 bg-success/10">
+                    <div className="bg-background p-1">
                       <Input
                         type="number"
-                        step="0.001"
-                        placeholder="1001"
                         value={fundedRealOpen}
                         onChange={(e) => setFundedRealOpen(e.target.value)}
-                        className="h-8 text-center text-xs font-semibold border border-border focus:ring-2 focus:ring-success/50"
+                        className="h-7 text-center text-[11px] bg-success/20 border-2 border-success/50 font-bold"
+                        placeholder="Enter"
                       />
                     </div>
                   </div>
                 </div>
-              </div>
 
-              {/* STEP 3 */}
-              <div className="border-b border-border">
-                <div className="grid grid-cols-[90px_1fr_1fr]">
-                  <div className="p-2.5 border-r border-border bg-muted/40">
-                    <p className="text-[11px] font-bold uppercase tracking-wide">Step 3</p>
-                  </div>
-                  <div className="p-2.5 border-r border-border bg-muted/20">
-                    <p className="text-[10px] font-bold text-center uppercase tracking-wide">Prop Firm AC</p>
-                  </div>
-                  <div className={`p-2.5 ${fundedAction === "SELL" ? "bg-destructive/15" : "bg-success/15"}`}>
-                    <p className="text-xs font-bold text-center uppercase tracking-wide">{fundedAction}</p>
-                  </div>
-                </div>
-              </div>
-
-              {/* STEP 4 */}
-              {fundedResult && (
-                <div className="border-b border-border">
-                  <div className="grid grid-cols-[90px_1fr_1fr] border-b border-border bg-muted/40">
-                    <div className="p-2.5 border-r border-border">
-                      <p className="text-[11px] font-bold uppercase tracking-wide">Step 4</p>
-                    </div>
-                    <div className="p-2 border-r border-border">
-                      <p className="text-[10px] font-bold text-center uppercase tracking-wide">Prop Firm TP</p>
-                    </div>
-                    <div className="p-2">
-                      <p className="text-[10px] font-bold text-center uppercase tracking-wide">Prop Firm SL</p>
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-[90px_1fr_1fr]">
-                    <div className="border-r border-border bg-muted/20"></div>
-                    <div className="p-2.5 border-r border-border bg-info/10">
-                      <p className="text-sm font-bold text-center">{fundedResult.pfTP.toFixed(3)}</p>
-                    </div>
-                    <div className="p-2.5 bg-info/10">
-                      <p className="text-sm font-bold text-center">{fundedResult.pfSL.toFixed(3)}</p>
+                {/* STEP 3 */}
+                <div className="border border-border">
+                  <div className="grid grid-cols-[60px_1fr] border-b border-border">
+                    <div className="border-r border-border p-1 font-bold text-[10px] bg-muted/50">STEP 3</div>
+                    <div className="grid grid-cols-2">
+                      <div className="border-r border-border p-1 text-center text-[10px] font-bold bg-muted/50">PROP FIRM AC</div>
+                      <div className="p-1 text-center">
+                        <Select value={fundedAction} onValueChange={(v) => setFundedAction(v as TradeAction)}>
+                          <SelectTrigger className={`h-7 text-[11px] font-bold border-2 ${fundedAction === "BUY" ? "bg-success/20 border-success/50" : "bg-destructive/20 border-destructive/50"}`}>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="BUY">BUY</SelectItem>
+                            <SelectItem value="SELL">SELL</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
                     </div>
                   </div>
                 </div>
-              )}
 
-              {/* FINDOUT SECTION */}
-              {fundedResult && getSpreadValues(fundedResult, fundedAction) && (
-                <div className="border-b border-border">
-                  <div className="p-2 bg-muted/40 border-b border-border">
-                    <p className="text-[10px] font-bold text-center uppercase tracking-wide">Findout The Exit Value To Show Real TP & Real SL</p>
-                  </div>
-                  <div className="grid grid-cols-[90px_100px_1fr_1fr_100px] border-b border-border bg-muted/40">
-                    <div className="border-r border-border"></div>
-                    <div className="border-r border-border"></div>
-                    <div className="p-1.5 border-r border-border">
-                      <p className="text-[9px] font-bold text-center uppercase tracking-wide">Higher Side</p>
-                    </div>
-                    <div className="p-1.5 border-r border-border">
-                      <p className="text-[9px] font-bold text-center uppercase tracking-wide">Lower Side</p>
-                    </div>
-                    <div className="p-1.5">
-                      <p className="text-[9px] font-bold text-center uppercase tracking-wide">Spread (PF)</p>
+                {/* STEP 4 */}
+                <div className="border border-border">
+                  <div className="grid grid-cols-[60px_1fr] border-b border-border">
+                    <div className="border-r border-border p-1 font-bold text-[10px] bg-muted/50">STEP 4</div>
+                    <div className="grid grid-cols-2 gap-px bg-border">
+                      <div className="bg-muted/50 p-1 text-center text-[10px] font-bold">PROP FIRM TP</div>
+                      <div className="bg-muted/50 p-1 text-center text-[10px] font-bold">PROP FIRM SL</div>
                     </div>
                   </div>
-                  {(() => {
-                    const spread = getSpreadValues(fundedResult, fundedAction);
-                    return (
-                      <>
-                        <div className="grid grid-cols-[90px_100px_1fr_1fr_100px] border-b border-border">
-                          <div className="border-r border-border bg-muted/20"></div>
-                          <div className="p-1.5 border-r border-border bg-muted/20">
-                            <p className="text-[10px] font-semibold">PF A/c</p>
-                          </div>
-                          <div className="p-1.5 border-r border-border bg-success/10">
-                            <p className="text-[10px] font-semibold text-center">{spread!.pfHigher.toFixed(4)}</p>
-                          </div>
-                          <div className="p-1.5 border-r border-border bg-success/10">
-                            <p className="text-[10px] font-semibold text-center">{spread!.pfLower.toFixed(4)}</p>
-                          </div>
-                          <div className="p-1.5 bg-success/10">
-                            <p className="text-[10px] font-semibold text-center">{spread!.pfSpread.toFixed(4)}</p>
-                          </div>
-                        </div>
-                        <div className="grid grid-cols-[90px_100px_1fr_1fr_100px]">
-                          <div className="border-r border-border bg-muted/20"></div>
-                          <div className="p-1.5 border-r border-border bg-muted/20">
-                            <p className="text-[10px] font-semibold">REAL A/c</p>
-                          </div>
-                          <div className="p-1.5 border-r border-border bg-success/10">
-                            <p className="text-[10px] font-semibold text-center">{spread!.realHigher.toFixed(4)}</p>
-                          </div>
-                          <div className="p-1.5 border-r border-border bg-success/10">
-                            <p className="text-[10px] font-semibold text-center">{spread!.realLower.toFixed(4)}</p>
-                          </div>
-                          <div className="p-1.5 bg-success/10">
-                            <p className="text-[10px] font-semibold text-center">{spread!.realSpread.toFixed(4)}</p>
-                          </div>
-                        </div>
-                      </>
-                    );
-                  })()}
-                </div>
-              )}
-
-              {/* STEP 5 */}
-              {fundedResult && (
-                <div className="border-b border-border">
-                  <div className="grid grid-cols-[90px_1fr_1fr] border-b border-border bg-muted/40">
-                    <div className="p-2.5 border-r border-border">
-                      <p className="text-[11px] font-bold uppercase tracking-wide">Step 5</p>
-                    </div>
-                    <div className="p-2 border-r border-border">
-                      <p className="text-[10px] font-bold text-center uppercase tracking-wide">Real AC TP</p>
-                    </div>
-                    <div className="p-2">
-                      <p className="text-[10px] font-bold text-center uppercase tracking-wide">Real AC SL</p>
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-[90px_1fr_1fr]">
-                    <div className="border-r border-border bg-muted/20"></div>
-                    <div className="p-2.5 border-r border-border bg-info/10">
-                      <p className="text-sm font-bold text-center">{fundedResult.realTP.toFixed(3)}</p>
-                    </div>
-                    <div className="p-2.5 bg-info/10">
-                      <p className="text-sm font-bold text-center">{fundedResult.realSL.toFixed(3)}</p>
-                    </div>
+                  <div className="grid grid-cols-2 gap-px bg-border p-px">
+                    <Input
+                      value={fundedResults?.pfTP.toFixed(3) || ""}
+                      readOnly
+                      className="h-8 text-center text-[11px] bg-info/20 border-none font-bold"
+                    />
+                    <Input
+                      value={fundedResults?.pfSL.toFixed(3) || ""}
+                      readOnly
+                      className="h-8 text-center text-[11px] bg-info/20 border-none font-bold"
+                    />
                   </div>
                 </div>
-              )}
 
-              {/* Balance */}
-              {fundedResult && (
-                <div className="p-3 bg-warning/15 border-t border-warning/40">
-                  <p className="text-[10px] font-bold text-center mb-1 uppercase tracking-wide">Real AC Balance After Evaluation or After Phase 2</p>
-                  <p className="text-xl font-bold text-center">${fundedResult.balance.toFixed(2)}</p>
+                {/* FINDOUT EXIT VALUE */}
+                {fundedResults && (() => {
+                  const spread = getSpreadValues(fundedResults.pfTP, fundedResults.pfSL, fundedResults.realTP, fundedResults.realSL, fundedAction);
+                  return (
+                    <div className="border border-border text-[10px]">
+                      <div className="border-b border-border p-1 text-center font-bold bg-muted/50">
+                        FINDOUT THE EXIT VALUE TO SHOW REAL TP & REAL SL
+                      </div>
+                      <div className="grid grid-cols-4 gap-px bg-border border-b border-border">
+                        <div className="bg-background"></div>
+                        <div className="bg-success/20 p-1 text-center font-bold">HIGHER SIDE</div>
+                        <div className="bg-success/20 p-1 text-center font-bold">LOWER SIDE</div>
+                        <div className="bg-success/20 p-1 text-center font-bold">SPREAD (PF)</div>
+                      </div>
+                      <div className="grid grid-cols-4 gap-px bg-border border-b border-border">
+                        <div className="bg-muted/50 p-1 font-bold">PF A/c</div>
+                        <div className="bg-success/20 p-1 text-center">{spread.pfHigher}</div>
+                        <div className="bg-success/20 p-1 text-center">{spread.pfLower}</div>
+                        <div className="bg-success/20 p-1 text-center">{spread.pfSpread}</div>
+                      </div>
+                      <div className="grid grid-cols-4 gap-px bg-border">
+                        <div className="bg-muted/50 p-1 font-bold">REAL A/c</div>
+                        <div className="bg-success/20 p-1 text-center">{spread.realHigher}</div>
+                        <div className="bg-success/20 p-1 text-center">{spread.realLower}</div>
+                        <div className="bg-success/20 p-1 text-center">{spread.realSpread}</div>
+                      </div>
+                    </div>
+                  );
+                })()}
+
+                {/* STEP 5 */}
+                <div className="border border-border">
+                  <div className="grid grid-cols-[60px_1fr] border-b border-border">
+                    <div className="border-r border-border p-1 font-bold text-[10px] bg-muted/50">STEP 5</div>
+                    <div className="grid grid-cols-2 gap-px bg-border">
+                      <div className="bg-muted/50 p-1 text-center text-[10px] font-bold">REAL AC TP</div>
+                      <div className="bg-muted/50 p-1 text-center text-[10px] font-bold">REAL AC SL</div>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-px bg-border p-px">
+                    <Input
+                      value={fundedResults?.realTP.toFixed(3) || ""}
+                      readOnly
+                      className="h-8 text-center text-[11px] bg-info/20 border-none font-bold"
+                    />
+                    <Input
+                      value={fundedResults?.realSL.toFixed(3) || ""}
+                      readOnly
+                      className="h-8 text-center text-[11px] bg-info/20 border-none font-bold"
+                    />
+                  </div>
                 </div>
-              )}
-            </div>
 
-            {/* Action Buttons */}
-            <div className="border border-border bg-card shadow-sm p-3">
-              <div className="flex gap-2">
-                <Button
-                  type="button"
-                  variant={fundedAction === "BUY" ? "default" : "outline"}
-                  className="flex-1 h-11 font-semibold"
-                  onClick={() => setFundedAction("BUY")}
-                >
-                  <ArrowUpRight className="w-4 h-4 mr-2" />
-                  BUY
-                </Button>
-                <Button
-                  type="button"
-                  variant={fundedAction === "SELL" ? "destructive" : "outline"}
-                  className="flex-1 h-11 font-semibold"
-                  onClick={() => setFundedAction("SELL")}
-                >
-                  <ArrowDownRight className="w-4 h-4 mr-2" />
-                  SELL
-                </Button>
+                {/* STEP 5 (duplicate) */}
+                <div className="border border-border">
+                  <div className="grid grid-cols-[60px_1fr] border-b border-border">
+                    <div className="border-r border-border p-1 font-bold text-[10px] bg-muted/50">STEP 5</div>
+                    <div className="grid grid-cols-2 gap-px bg-border">
+                      <div className="bg-muted/50 p-1 text-center text-[10px] font-bold">REAL AC TP</div>
+                      <div className="bg-muted/50 p-1 text-center text-[10px] font-bold">REAL AC SL</div>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-px bg-border p-px">
+                    <Input
+                      value={fundedResults?.realTP.toFixed(3) || ""}
+                      readOnly
+                      className="h-8 text-center text-[11px] bg-info/20 border-none font-bold"
+                    />
+                    <Input
+                      value={fundedResults?.realSL.toFixed(3) || ""}
+                      readOnly
+                      className="h-8 text-center text-[11px] bg-info/20 border-none font-bold"
+                    />
+                  </div>
+                </div>
               </div>
             </div>
-          </div>
+          </Card>
         </div>
       </div>
     </div>
   );
-}
+};
