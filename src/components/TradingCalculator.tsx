@@ -83,6 +83,7 @@ export const TradingCalculator = () => {
                 <SelectItem value="100K">100K</SelectItem>
                 <SelectItem value="50K">50K</SelectItem>
                 <SelectItem value="25K">25K</SelectItem>
+                <SelectItem value="5K">5K</SelectItem>
               </SelectContent>
             </Select>
           </div>

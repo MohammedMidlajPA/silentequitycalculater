@@ -38,6 +38,7 @@ export function calculateTrade(
     "100K": { pf: "pf100k", real: "real100k" },
     "50K": { pf: "pf50k", real: "real50k" },
     "25K": { pf: "pf25k", real: "real25k" },
+    "5K": { pf: "pf5k", real: "real5k" },
   };
 
   const lotKeys = lotMap[accountType];
@@ -51,16 +52,16 @@ export function calculateTrade(
     // For SELL (PF): TP = Open - TP, SL = Open + SL
     pfTP = pfOpenPrice - segmentData.tp;
     pfSL = pfOpenPrice + segmentData.sl;
-    // For SELL (Real): SL = Open + SL, TP = Open - TP
-    realSL = realOpenPrice + segmentData.sl;
+    // For SELL (Real): TP = Open - TP, SL = Open + SL
     realTP = realOpenPrice - segmentData.tp;
+    realSL = realOpenPrice + segmentData.sl;
   } else {
     // For BUY (PF): TP = Open + TP, SL = Open - SL
     pfTP = pfOpenPrice + segmentData.tp;
     pfSL = pfOpenPrice - segmentData.sl;
-    // For BUY (Real): SL = Open - SL, TP = Open + TP
-    realSL = realOpenPrice - segmentData.sl;
+    // For BUY (Real): TP = Open + TP, SL = Open - SL
     realTP = realOpenPrice + segmentData.tp;
+    realSL = realOpenPrice - segmentData.sl;
   }
 
   // For EVALUATION, use the account balance from the map
