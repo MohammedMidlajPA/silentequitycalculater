@@ -14,7 +14,132 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      account_balances: {
+        Row: {
+          account_type: string
+          balance: number
+          created_at: string | null
+          id: string
+          updated_at: string | null
+        }
+        Insert: {
+          account_type: string
+          balance: number
+          created_at?: string | null
+          id?: string
+          updated_at?: string | null
+        }
+        Update: {
+          account_type?: string
+          balance?: number
+          created_at?: string | null
+          id?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      trading_segments_evaluation: {
+        Row: {
+          created_at: string | null
+          id: string
+          pf_lot_100k: number
+          pf_lot_25k: number
+          pf_lot_50k: number
+          pf_lot_5k: number
+          real_lot_100k: number
+          real_lot_25k: number
+          real_lot_50k: number
+          real_lot_5k: number
+          segment: string
+          sl: number
+          tp: number
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          pf_lot_100k: number
+          pf_lot_25k: number
+          pf_lot_50k: number
+          pf_lot_5k?: number
+          real_lot_100k: number
+          real_lot_25k: number
+          real_lot_50k: number
+          real_lot_5k?: number
+          segment: string
+          sl: number
+          tp: number
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          pf_lot_100k?: number
+          pf_lot_25k?: number
+          pf_lot_50k?: number
+          pf_lot_5k?: number
+          real_lot_100k?: number
+          real_lot_25k?: number
+          real_lot_50k?: number
+          real_lot_5k?: number
+          segment?: string
+          sl?: number
+          tp?: number
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      trading_segments_funded: {
+        Row: {
+          created_at: string | null
+          id: string
+          pf_lot_100k: number
+          pf_lot_25k: number
+          pf_lot_50k: number
+          pf_lot_5k: number
+          real_lot_100k: number
+          real_lot_25k: number
+          real_lot_50k: number
+          real_lot_5k: number
+          segment: string
+          sl: number
+          tp: number
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          pf_lot_100k: number
+          pf_lot_25k: number
+          pf_lot_50k: number
+          pf_lot_5k?: number
+          real_lot_100k: number
+          real_lot_25k: number
+          real_lot_50k: number
+          real_lot_5k?: number
+          segment: string
+          sl: number
+          tp: number
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          pf_lot_100k?: number
+          pf_lot_25k?: number
+          pf_lot_50k?: number
+          pf_lot_5k?: number
+          real_lot_100k?: number
+          real_lot_25k?: number
+          real_lot_50k?: number
+          real_lot_5k?: number
+          segment?: string
+          sl?: number
+          tp?: number
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
