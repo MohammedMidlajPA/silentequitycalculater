@@ -3,54 +3,75 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { EVALUATION_DATA, FUNDED_DATA, type AccountType, type TradeAction } from "@/data/tradingData";
-import { calculateTrade, type CalculationResult } from "@/utils/calculator";
+import { Button } from "@/components/ui/button";
+import { Loader2 } from "lucide-react";
+import { useTradingDataEvaluation, useTradingDataFunded, useAccountBalances } from "@/hooks/useTradingData";
+import { calculateTradeFromSupabase, type AccountType, type TradeAction, type CalculationResult } from "@/utils/supabaseCalculator";
 
 export const TradingCalculator = () => {
-  const [accountType, setAccountType] = useState<AccountType>("50K");
+  const { data: evaluationData, isLoading: evalLoading } = useTradingDataEvaluation();
+  const { data: fundedData, isLoading: fundedLoading } = useTradingDataFunded();
+  const { data: balancesData, isLoading: balancesLoading } = useAccountBalances();
+
+  const [accountType, setAccountType] = useState<AccountType>("100K");
   
   // Evaluation Stage States
-  const [evalSegment, setEvalSegment] = useState("P1 1ST TRADE");
-  const [evalAction, setEvalAction] = useState<TradeAction>("SELL");
+  const [evalSegment, setEvalSegment] = useState("");
+  const [evalAction, setEvalAction] = useState<TradeAction>("BUY");
   const [evalPfOpen, setEvalPfOpen] = useState("");
   const [evalRealOpen, setEvalRealOpen] = useState("");
   const [evalResults, setEvalResults] = useState<CalculationResult | null>(null);
 
   // Funded Stage States
-  const [fundedSegment, setFundedSegment] = useState("1ST TRADE");
-  const [fundedAction, setFundedAction] = useState<TradeAction>("SELL");
+  const [fundedSegment, setFundedSegment] = useState("");
+  const [fundedAction, setFundedAction] = useState<TradeAction>("BUY");
   const [fundedPfOpen, setFundedPfOpen] = useState("");
   const [fundedRealOpen, setFundedRealOpen] = useState("");
   const [fundedResults, setFundedResults] = useState<CalculationResult | null>(null);
 
-  // Auto-calculate when inputs change
-  useEffect(() => {
-    if (evalPfOpen && evalRealOpen) {
-      const results = calculateTrade(
-        accountType,
-        "EVALUATION",
-        evalSegment,
-        evalAction,
-        parseFloat(evalPfOpen),
-        parseFloat(evalRealOpen)
-      );
-      setEvalResults(results);
-    }
-  }, [accountType, evalSegment, evalAction, evalPfOpen, evalRealOpen]);
+  // Get balance for selected account type
+  const getBalance = () => {
+    const balanceRecord = balancesData?.find(b => b.account_type === accountType);
+    return balanceRecord?.balance || 0;
+  };
 
+  // Auto-calculate evaluation when inputs change
   useEffect(() => {
-    if (fundedPfOpen && fundedRealOpen) {
-      const results = calculateTrade(
-        accountType,
-        "FUNDED",
-        fundedSegment,
-        fundedAction,
-        parseFloat(fundedPfOpen),
-        parseFloat(fundedRealOpen)
-      );
-      setFundedResults(results);
+    if (!evaluationData || !evalSegment || !evalPfOpen || !evalRealOpen) {
+      setEvalResults(null);
+      return;
     }
-  }, [accountType, fundedSegment, fundedAction, fundedPfOpen, fundedRealOpen]);
+
+    const segment = evaluationData.find(s => s.segment === evalSegment);
+    const results = calculateTradeFromSupabase(
+      segment,
+      accountType,
+      evalAction,
+      parseFloat(evalPfOpen),
+      parseFloat(evalRealOpen),
+      getBalance()
+    );
+    setEvalResults(results);
+  }, [evaluationData, evalSegment, accountType, evalAction, evalPfOpen, evalRealOpen, balancesData]);
+
+  // Auto-calculate funded when inputs change
+  useEffect(() => {
+    if (!fundedData || !fundedSegment || !fundedPfOpen || !fundedRealOpen) {
+      setFundedResults(null);
+      return;
+    }
+
+    const segment = fundedData.find(s => s.segment === fundedSegment);
+    const results = calculateTradeFromSupabase(
+      segment,
+      accountType,
+      fundedAction,
+      parseFloat(fundedPfOpen),
+      parseFloat(fundedRealOpen),
+      1000
+    );
+    setFundedResults(results);
+  }, [fundedData, fundedSegment, accountType, fundedAction, fundedPfOpen, fundedRealOpen]);
 
   const getSpreadValues = (pfTP: number, pfSL: number, realTP: number, realSL: number, action: TradeAction) => {
     const pfHigher = action === "BUY" ? pfTP : pfSL;
@@ -67,6 +88,28 @@ export const TradingCalculator = () => {
       realSpread: (realHigher - realLower).toFixed(4),
     };
   };
+
+  const handleClear = () => {
+    setAccountType("100K");
+    setEvalSegment("");
+    setEvalAction("BUY");
+    setEvalPfOpen("");
+    setEvalRealOpen("");
+    setEvalResults(null);
+    setFundedSegment("");
+    setFundedAction("BUY");
+    setFundedPfOpen("");
+    setFundedRealOpen("");
+    setFundedResults(null);
+  };
+
+  if (evalLoading || fundedLoading || balancesLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background p-4">
@@ -160,7 +203,7 @@ export const TradingCalculator = () => {
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          {EVALUATION_DATA.map((d) => (
+                          {evaluationData?.map((d) => (
                             <SelectItem key={d.segment} value={d.segment} className="text-[11px]">
                               {d.segment}
                             </SelectItem>
@@ -364,7 +407,7 @@ export const TradingCalculator = () => {
                   <div className="border-r border-border p-1 text-center font-bold text-[10px] bg-muted/50">PROP</div>
                   <div className="p-1 text-center font-bold text-[10px] bg-muted/50">REAL</div>
                 </div>
-                {FUNDED_DATA.map((trade) => (
+                {fundedData?.map((trade) => (
                   <div
                     key={trade.segment}
                     className={`grid grid-cols-2 border-b border-border ${fundedSegment === trade.segment ? "bg-success/30" : ""}`}
@@ -399,7 +442,7 @@ export const TradingCalculator = () => {
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          {FUNDED_DATA.map((d) => (
+                          {fundedData?.map((d) => (
                             <SelectItem key={d.segment} value={d.segment} className="text-[11px]">
                               {d.segment}
                             </SelectItem>
@@ -579,6 +622,18 @@ export const TradingCalculator = () => {
               </div>
             </div>
           </Card>
+        </div>
+
+        {/* Clear Button */}
+        <div className="flex justify-center pt-4">
+          <Button
+            onClick={handleClear}
+            variant="destructive"
+            size="lg"
+            className="px-8"
+          >
+            Clear All
+          </Button>
         </div>
       </div>
     </div>
