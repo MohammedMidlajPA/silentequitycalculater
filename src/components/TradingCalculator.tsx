@@ -13,6 +13,7 @@ export const TradingCalculator = () => {
   const { data: fundedData, isLoading: fundedLoading } = useTradingDataFunded();
   const { data: balancesData, isLoading: balancesLoading } = useAccountBalances();
 
+  // PF Account Size is the primary driver - set at the top
   const [accountType, setAccountType] = useState<AccountType>("100K");
   
   // Evaluation Stage States

@@ -38,6 +38,36 @@ export type Database = {
         }
         Relationships: []
       }
+      course_leads: {
+        Row: {
+          created_at: string
+          discord_link: string
+          email: string
+          id: string
+          name: string
+          paid: boolean
+          phone: string
+        }
+        Insert: {
+          created_at?: string
+          discord_link: string
+          email: string
+          id?: string
+          name: string
+          paid?: boolean
+          phone: string
+        }
+        Update: {
+          created_at?: string
+          discord_link?: string
+          email?: string
+          id?: string
+          name?: string
+          paid?: boolean
+          phone?: string
+        }
+        Relationships: []
+      }
       trading_segments_evaluation: {
         Row: {
           created_at: string | null
